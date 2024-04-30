@@ -12,5 +12,6 @@ public enum HTTPMethod {
     PUT,
     DELETE,
     TRACE,
-    CONNECT
+    CONNECT,
+    PATCH
 }
