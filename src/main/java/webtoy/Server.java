@@ -12,7 +12,7 @@ import java.util.LinkedList;
 public class Server {
     private final Selector selector;
     private final ServerSocketChannel listener;
-    private final List<SocketChannel> connections = new LinkedList<>();
+    private final List<SocketChannel> connections;
     private final Application application;
 
     public final InetSocketAddress address;
@@ -24,6 +24,9 @@ public class Server {
         this.listener.configureBlocking(false);
         this.selector = Selector.open();
         this.listener.register(selector, SelectionKey.OP_ACCEPT);
+
+        // Private variables
+        this.connections = new LinkedList<>();
         this.application = application;
     }
 
