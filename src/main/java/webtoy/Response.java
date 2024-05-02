@@ -2,6 +2,7 @@ package webtoy;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.StringJoiner;
 
 public class Response {
 
@@ -81,19 +82,73 @@ public class Response {
             Map.entry(510, "Not Extended"),
             Map.entry(511, "Network Authentication Required"));
 
-    public static final String version = "HTTP/1.1";
+    public static final String Version = "HTTP/1.1";
+    public static String DefaultContentType = "text/html";
 
+    /**
+     * Throw when handler made an invalid response (like unknown response code).
+     */
+    public class InvalidResponse extends Exception {
+        InvalidResponse(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * Make an response, headers could be add in Response.headers.
+     * @param code of response
+     * @param content of response
+     */
     public Response(Integer code, String content) {
         this.code = code;
         this.content = content;
         this.headers = new HashMap<>();
     }
 
+    /**
+     * Shortcuts for making simple status code response (like 404).
+     * @param code of response
+     */
     public Response(Integer code) {
         this(code, "");
     }
 
+    /**
+     * Shortcuts for making 200 response.
+     * @param content of resposne
+     */
     public Response(String content) {
         this(200, content);
+    }
+
+    /**
+     * Make HTTP/1.1 response.
+     * 
+     * The full response should looks like:
+     * 
+     *   HTTP/1.1 200 OK<CRLF>
+     *   Server: Simple-Python-HTTP-Server<CRLF>
+     *   Content-Type: text/plain<CRLF>
+     *   Content-Length: 37<CRLF>
+     *   <CRLF>
+     *   [Body]
+     * 
+     * See more: https://www.w3.org/Protocols/rfc2616/rfc2616-sec6.html
+     */
+    @Override
+    public String toString() {
+        StringJoiner lines = new StringJoiner("\r\n");
+        lines.add(String.format("%s %d %s", Version, this.code, StatusCodes.getOrDefault(code, "unknown")));
+
+        // Set Content-Length and Content-Type headers if not set
+        this.headers.put("Content-Length", Integer.toString(this.content.length()));
+        if (!headers.containsKey("Content-Type"))
+            this.headers.put("Content-Typ", DefaultContentType);
+
+        for (String key : this.headers.keySet())
+            lines.add(String.format("%s: %s", key, this.headers.get(key)));
+        lines.add("");
+        lines.add(this.content);
+        return lines.toString();
     }
 }
