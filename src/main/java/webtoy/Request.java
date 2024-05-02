@@ -25,7 +25,7 @@ public class Request {
     public Map<String, String> queries;
     public Map<String, String> cookies;
 
-    public static final String version = "HTTP/1.1";
+    public static final String Version = "HTTP/1.1";
 
     // All methods which has body
     private static final Set<HTTPMethod> HasBodyMethods = Set.of(
@@ -35,8 +35,8 @@ public class Request {
     /**
      * Throw when server could not parse data to an request.
      */
-    class InvalidRequest extends Exception {
-        InvalidRequest(String message) {
+    public class InvalidRequest extends Exception {
+        public InvalidRequest(String message) {
             super(message);
         }
     }
@@ -169,7 +169,7 @@ public class Request {
             throw new InvalidRequest(String.format("invalid request method %s", parts[0]));
         }
         this.url = parts[1];
-        if (parts[2] == version)
+        if (parts[2] == Version)
             throw new InvalidRequest(String.format("invalid request version %s", parts[2]));
 
         // Parse path and args from url
