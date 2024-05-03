@@ -7,6 +7,8 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -110,6 +112,7 @@ public class Server {
         // Read until got double CRLF
         Integer headerSize = findUntil2CRLF(headerBuffer) + 1;
         if (headerSize == -1) {
+            this.log(client, null, 451);
             client.write(ByteBuffer.wrap(Response.HeaderTooLargeResponse.getBytes()));
             key.cancel();
             client.close();
@@ -121,6 +124,7 @@ public class Server {
         try {
             request = new Request(header);
         } catch (InvalidRequest error) {
+            this.log(client, null, 411);
             client.write(ByteBuffer.wrap(Response.LengthRequiredResponse.getBytes()));
             key.cancel();
             client.close();
@@ -129,6 +133,7 @@ public class Server {
         // Try to get last part of body if it
         Integer bodysize = request.bodysize;
         if (bodysize >= MaxRequestBodySize) {
+            this.log(client, request, 413);
             client.write(ByteBuffer.wrap(Response.ContentTooLargeResponse.getBytes()));
             key.cancel();
             client.close();
@@ -149,6 +154,7 @@ public class Server {
         try {
             request.parseBody(body);
         } catch (InvalidRequest error) {
+            this.log(client, request, 400);
             client.write(ByteBuffer.wrap(Response.InvalidRequestResponse.getBytes()));
             key.cancel();
             client.close();
@@ -157,6 +163,7 @@ public class Server {
         // Application handle this request and generate response
         Response response = this.application.respond(request);
         try {
+            this.log(client, request, response);
             client.write(ByteBuffer.wrap(response.toString().getBytes()));
         } catch (IOException error) {
             key.cancel();
@@ -223,6 +230,40 @@ public class Server {
                 }
                 iter.remove();
             }
+        }
+    }
+
+    /**
+     * Shortcut of log for response.
+     */
+    private void log(SocketChannel client, Request request, Response response) {
+        this.log(client, request, response.code);
+    }
+
+    /**
+     * Log server action.
+     * @param client socket channel
+     * @param request parsed from client
+     * @param response code generated from application
+     */
+    private void log(SocketChannel client, Request request, Integer responseCode) {
+        String url = "?";
+        String method = "?";
+        if (request != null) {
+            url = request.url;
+            method = request.method.toString();
+        }
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
+        LocalDateTime now = LocalDateTime.now();
+        try {
+            System.out.println(String.format("%s %s - %s %s > %d",
+                    formatter.format(now),
+                    client.getRemoteAddress().toString().substring(1),
+                    method,
+                    url,
+                    responseCode));
+        } catch (IOException error) {
+            return;
         }
     }
 
