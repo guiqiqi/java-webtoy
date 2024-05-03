@@ -151,4 +151,10 @@ public class Response {
         lines.add(this.content);
         return lines.toString();
     }
+
+    // For serving invalid request form client
+    public static final String InvalidRequestResponse = new Response(501).toString();
+    public static final String LengthRequiredResponse = new Response(411).toString();
+    public static final String ContentTooLargeResponse = new Response(413).toString();
+    public static final String HeaderTooLargeResponse = new Response(451).toString();
 }

@@ -5,7 +5,6 @@ import java.net.URLDecoder;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Set;
-import java.util.StringJoiner;
 
 /**
  * Parse raw data extarcted from TCP server into an HTTP request.
@@ -19,6 +18,7 @@ public class Request {
     public String path;
     public Map<String, String> headers;
     public String body;
+    public final Integer bodysize;
     public Map<String, String> forms;
 
     // Get data form url and headers
@@ -42,7 +42,7 @@ public class Request {
     }
 
     /**
-     * Parse raw data into an HTTP request.
+     * Parse raw HEADER data into an HTTP request.
      * 
      * Request       = Request-Line              ;
      *                 *(( general-header        ;
@@ -55,23 +55,17 @@ public class Request {
      */
     public Request(String data) throws InvalidRequest {
         Integer lineno = 0;
-        Boolean parsingBody = false;
-        StringJoiner bodies = new StringJoiner("\r\n");
         for (String line : data.strip().split("\r\n")) {
             if (lineno++ == 0) {
                 this.parseRequestLine(line);
                 continue;
             }
-            if (line.length() == 0) {
-                parsingBody = true;
-                continue;
-            }
-            if (parsingBody)
-                bodies.add(line);
-            else
-                this.parseHeaderLine(line);
+            this.parseHeaderLine(line);
         }
-        this.parseBody(bodies.toString());
+        if (HasBodyMethods.contains(this.method))
+            if (!this.headers.containsKey("Content-Length"))
+                throw new InvalidRequest("content length not indicated in header");
+        this.bodysize = Integer.decode(this.headers.getOrDefault("Content-Length", "0"));
     }
 
     /**
@@ -87,16 +81,10 @@ public class Request {
      * @param content of http request body
      * @throws InvalidRequest if cannot parse body from data
      */
-    private void parseBody(String body) throws InvalidRequest {
+    public void parseBody(String body) throws InvalidRequest {
         if (!HasBodyMethods.contains(this.method))
             return;
-        Integer contentLength = body.length();
-        if (this.headers.containsKey("Content-Length"))
-            contentLength = Integer.parseInt(this.headers.get("Content-Length"));
         String contentType = this.headers.getOrDefault("Content-Type", "text/plain");
-        this.headers.put("Content-Length", Integer.toString(contentLength));
-        this.headers.put("Content-Type", contentType);
-        body = body.substring(0, contentLength);
 
         // Check if Content-Type is "application/x-www-form-urlencoded"
         this.body = body;
