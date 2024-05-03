@@ -148,8 +148,7 @@ public class Response {
         for (String key : this.headers.keySet())
             lines.add(String.format("%s: %s", key, this.headers.get(key)));
         lines.add("");
-        if (this.content.length() > 0)
-            lines.add(this.content);
+        lines.add(this.content);
         return lines.toString();
     }
 

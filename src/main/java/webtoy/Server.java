@@ -9,6 +9,7 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -107,14 +108,13 @@ public class Server {
         }
 
         // Read until got double CRLF
-        Integer headerSize = findUntil2CRLF(headerBuffer);
+        Integer headerSize = findUntil2CRLF(headerBuffer) + 1;
         if (headerSize == -1) {
             client.write(ByteBuffer.wrap(Response.HeaderTooLargeResponse.getBytes()));
             key.cancel();
             client.close();
         }
         String header = new String(headerBuffer.array(), 0, headerSize);
-        String body = new String(headerBuffer.array(), headerSize, headerBuffer.limit());
 
         // Try to parse header of request and get Content-Length
         Request request = null;
@@ -133,6 +133,7 @@ public class Server {
             key.cancel();
             client.close();
         }
+        String body = new String(headerBuffer.array(), headerSize, headerBuffer.limit() - headerSize);
         Integer restLengthOfBody = bodysize - (headerBuffer.limit() - headerSize);
         if (restLengthOfBody > 0) {
             ByteBuffer bodyBuffer = ByteBuffer.allocate(restLengthOfBody);
@@ -186,8 +187,7 @@ public class Server {
      * @param key is select key contains socket channel from client
      */
     private void accept(SelectionKey key) throws IOException {
-        SocketChannel client = null;
-        client = this.listener.accept();
+        SocketChannel client = this.listener.accept();
         client.configureBlocking(false);
         client.register(this.selector, SelectionKey.OP_READ);
         this.connections.add(client);
@@ -206,7 +206,9 @@ public class Server {
             this.status = true;
 
             Set<SelectionKey> selectedKeys = selector.selectedKeys();
-            for (SelectionKey key : selectedKeys) {
+            Iterator<SelectionKey> iter = selectedKeys.iterator();
+            while (iter.hasNext()) {
+                SelectionKey key = iter.next();
                 try {
                     // Create a new connection for serving client
                     if (key.isAcceptable())
@@ -219,6 +221,7 @@ public class Server {
                     // Key already canceld, so do nothing
                     continue;
                 }
+                iter.remove();
             }
         }
     }
