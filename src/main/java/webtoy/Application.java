@@ -4,7 +4,7 @@ import java.util.List;
 
 public class Application {
 
-    private Router router;
+    private Router router = new Router();
 
     /**
      * Respond to TCP server with request.

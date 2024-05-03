@@ -11,12 +11,26 @@ public class Router {
      * Path bind with method.
      */
     class PathMethod {
-        public String path;
-        public HTTPMethod method;
+        public final String path;
+        public final HTTPMethod method;
 
         PathMethod(String path, HTTPMethod method) {
             this.path = path;
             this.method = method;
+        }
+
+        /**
+         * Hashcode of PathMethod should be hashCode of String "Method:Path".
+         */
+        @Override
+        public int hashCode() {
+            return String.format("%s:%s", this.method, this.path).hashCode();
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            PathMethod other = (PathMethod) obj;
+            return this.path.equals(other.path) && this.method.equals(other.method);
         }
     }
 
