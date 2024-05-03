@@ -95,9 +95,11 @@ public class Request {
         String contentType = this.headers.getOrDefault("Content-Type", "text/plain");
 
         // Check if Content-Type is "application/x-www-form-urlencoded"
-        this.body = body;
+        this.body = new String();
         if (contentType.equals("application/x-www-form-urlencoded"))
             this.forms = urlDecode(body, "&");
+        else
+            this.body = body;
     }
 
     /**
