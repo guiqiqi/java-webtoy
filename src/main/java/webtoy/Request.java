@@ -142,8 +142,11 @@ public class Request {
                 result.put(parts[0], URLDecoder.decode(parts[1], "utf-8"));
             } catch (UnsupportedEncodingException error) {
                 throw new InvalidRequest("ooh, why you canot recognize utf-8?");
+            // Ignore invalid paramaters
             } catch (IllegalArgumentException error) {
-                throw new InvalidRequest(String.format("invalid url encoded data: %s", param));
+                continue;
+            } catch (ArrayIndexOutOfBoundsException error) {
+                continue;
             }
         }
         return result;
