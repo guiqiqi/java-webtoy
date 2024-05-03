@@ -22,7 +22,7 @@ public class Request {
     public Map<String, String> forms;
 
     // Get data form url and headers
-    public Map<String, String> queries;
+    public Map<String, String> args;
     public Map<String, String> cookies;
 
     public static final String Version = "HTTP/1.1";
@@ -55,6 +55,10 @@ public class Request {
      */
     public Request(String data) throws InvalidRequest {
         Integer lineno = 0;
+        this.args = new HashMap<>();
+        this.forms = new HashMap<>();
+        this.headers = new HashMap<>();
+        this.cookies = new HashMap<>();
         for (String line : data.strip().split("\r\n")) {
             if (lineno++ == 0) {
                 this.parseRequestLine(line);
@@ -84,11 +88,15 @@ public class Request {
     public void parseBody(String body) throws InvalidRequest {
         if (!HasBodyMethods.contains(this.method))
             return;
+        if (this.bodysize > body.length())
+            throw new InvalidRequest(
+                    String.format("content length not matched: %d > %d", this.bodysize, body.length()));
+        body = body.substring(0, this.bodysize);
         String contentType = this.headers.getOrDefault("Content-Type", "text/plain");
 
         // Check if Content-Type is "application/x-www-form-urlencoded"
         this.body = body;
-        if (contentType == "application/x-www-form-urlencoded")
+        if (contentType.equals("application/x-www-form-urlencoded"))
             this.forms = urlDecode(body, "&");
     }
 
@@ -107,8 +115,10 @@ public class Request {
         this.headers.put(parts[0], parts[1]);
 
         // Parse Cookie
-        if (parts[0] == "Cookie")
+        if (parts[0].equals("Cookie")) {
             this.cookies = urlDecode(parts[1], "; ");
+            this.headers.remove(parts[0]);
+        }
     }
 
     /**
@@ -125,7 +135,7 @@ public class Request {
     public Map<String, String> urlDecode(String params, String delimeter) throws InvalidRequest {
         Map<String, String> result = new HashMap<>();
         for (String param : params.split(delimeter)) {
-            String[] parts = param.split("=", 1);
+            String[] parts = param.split("=", 2);
             try {
                 result.put(parts[0], URLDecoder.decode(parts[1], "utf-8"));
             } catch (UnsupportedEncodingException error) {
@@ -157,13 +167,13 @@ public class Request {
             throw new InvalidRequest(String.format("invalid request method %s", parts[0]));
         }
         this.url = parts[1];
-        if (parts[2] == Version)
+        if (!parts[2].equals(Version))
             throw new InvalidRequest(String.format("invalid request version %s", parts[2]));
 
         // Parse path and args from url
-        parts = this.url.split("?", 1);
+        parts = this.url.split("\\?", 2);
         this.path = parts[0];
         if (parts.length > 1)
-            this.queries = urlDecode(parts[1], "&");
+            this.args = urlDecode(parts[1], "&");
     }
 }
