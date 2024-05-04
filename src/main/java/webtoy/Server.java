@@ -4,16 +4,17 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.Selector;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedSelectorException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Set;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.HashSet;
 
 import webtoy.Request.InvalidRequest;
 
@@ -105,8 +106,7 @@ public class Server {
 
         // If client closed connection
         if (headerRead == -1) {
-            key.cancel();
-            client.close();
+            this.disconnectClient(key);
         }
 
         // Read until got double CRLF
@@ -114,8 +114,7 @@ public class Server {
         if (headerSize == -1) {
             this.log(client, null, 451);
             client.write(ByteBuffer.wrap(Response.HeaderTooLargeResponse.getBytes()));
-            key.cancel();
-            client.close();
+            this.disconnectClient(key);
         }
         String header = new String(headerBuffer.array(), 0, headerSize);
 
@@ -126,8 +125,7 @@ public class Server {
         } catch (InvalidRequest error) {
             this.log(client, null, 411);
             client.write(ByteBuffer.wrap(Response.LengthRequiredResponse.getBytes()));
-            key.cancel();
-            client.close();
+            this.disconnectClient(key);
         }
 
         // Try to get last part of body if it
@@ -135,18 +133,15 @@ public class Server {
         if (bodysize >= MaxRequestBodySize) {
             this.log(client, request, 413);
             client.write(ByteBuffer.wrap(Response.ContentTooLargeResponse.getBytes()));
-            key.cancel();
-            client.close();
+            this.disconnectClient(key);
         }
         String body = new String(headerBuffer.array(), headerSize, headerBuffer.limit() - headerSize);
         Integer restLengthOfBody = bodysize - (headerBuffer.limit() - headerSize);
         if (restLengthOfBody > 0) {
             ByteBuffer bodyBuffer = ByteBuffer.allocate(restLengthOfBody);
             Integer bodyRead = client.read(bodyBuffer);
-            if (bodyRead == -1) {
-                key.cancel();
-                client.close();
-            }
+            if (bodyRead == -1)
+                this.disconnectClient(key);
             body += new String(bodyBuffer.array(), 0, restLengthOfBody);
         }
 
@@ -156,8 +151,7 @@ public class Server {
         } catch (InvalidRequest error) {
             this.log(client, request, 400);
             client.write(ByteBuffer.wrap(Response.InvalidRequestResponse.getBytes()));
-            key.cancel();
-            client.close();
+            this.disconnectClient(key);
         }
 
         // Application handle this request and generate response
@@ -166,9 +160,24 @@ public class Server {
             this.log(client, request, response);
             client.write(ByteBuffer.wrap(response.toString().getBytes()));
         } catch (IOException error) {
+            this.disconnectClient(key);
+        }
+    }
+
+    /**
+     * Disconnect client socket connection and cancel listen on given key.
+     * @param key of current event from selector
+     */
+    private void disconnectClient(SelectionKey key) {
+        SocketChannel client = (SocketChannel) key.channel();
+        try {
             key.cancel();
             client.close();
+        } catch (IOException error) {
+            // Do nothing here
         }
+        if (this.connections.contains(client))
+            this.connections.remove(client);
     }
 
     /**
@@ -207,6 +216,8 @@ public class Server {
         while (true) {
             try {
                 this.selector.select();
+            } catch (ClosedSelectorException error) {
+                return;
             } catch (IOException error) {
                 return;
             }
@@ -230,6 +241,19 @@ public class Server {
                 }
                 iter.remove();
             }
+        }
+    }
+
+    /**
+     * Close server and close all client connections.
+     */
+    public void close() {
+        try {
+            this.listener.close();
+            for (SocketChannel connection : this.connections)
+                connection.close();
+        } catch (IOException error) {
+            return;
         }
     }
 

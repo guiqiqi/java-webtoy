@@ -16,6 +16,13 @@ public class App {
         app.route("/foo", List.of(HTTPMethod.GET, HTTPMethod.POST), handler);
         try {
             Server server = new Server("localhost", 9009, app);
+            Runtime.getRuntime().addShutdownHook(new Thread() {
+                @Override
+                public void run() {
+                    System.out.println("\nHave a nice day :)");
+                    server.close();
+                }
+            });
             server.start();
         } catch (IOException error) {
             System.out.println("error in tcp");
